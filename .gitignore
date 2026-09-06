@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Raw datasets
+*.zip
+*.tif
+*.tiff
+data/raw/
+data/images/
+
+# Model weights / caches
+models/
+checkpoints/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# Local Hugging Face cache
+.huggingface/
+
+# Generated outputs
+outputs/
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
