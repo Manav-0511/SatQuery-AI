@@ -53,9 +53,15 @@ def test_provenance_immutability():
         def name(self) -> str: return "ProvSpec"
         @property
         def version(self) -> str: return "1.0"
-        def get_capabilities(self) -> list[SpecialistCapability]:
-            return [SpecialistCapability(task=TaskType.VQA, supported_inputs=[InputConfigType.SINGLE_IMAGE])]
-        def analyze(self, request, task) -> SpecialistResult:
+        @property
+        def capabilities(self) -> SpecialistCapability:
+            return SpecialistCapability(
+                capability_id="provspec", name=self.name, version=self.version,
+                model_id="prov", model_version="1.0",
+                tasks=[TaskType.VQA], supported_tasks=[TaskType.VQA], modalities=["OPTICAL"], supported_modalities=["OPTICAL"]
+            )
+        def can_handle(self, request): return True
+        def analyze(self, request) -> SpecialistResult:
             return SpecialistResult(
                 status="COMPLETED",
                 task=TaskType.VQA,
@@ -73,10 +79,16 @@ def test_provenance_immutability():
         inputs=[InputItem(url="t.tif", type="image/tiff")]
     )
     
+    from app.agent.registry import registry
+    from app.agent.router import SpecialistCandidateInfo
     spec = ProvenanceSpecialist()
-    exec_res = execute_specialist(req, TaskType.VQA, spec, "run-prov")
+    registry.register(spec)
+    try:
+        exec_res = execute_specialist(req, TaskType.VQA, SpecialistCandidateInfo(name=spec.name, version=spec.version), "run-prov")
+        assert exec_res.status == "COMPLETED"
+    finally:
+        registry._specialists.remove(spec)
     
-    assert exec_res.status == "COMPLETED"
     assert exec_res.response.provenance.is_real_data is True
     assert exec_res.response.provenance.synthetic is False
     assert exec_res.response.provenance.dataset == "S2-TEST"

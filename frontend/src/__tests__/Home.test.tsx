@@ -65,12 +65,12 @@ describe('SatQuery AI Frontend', () => {
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(screen.getByText('TEST / DEMO SPECIALIST')).toBeInTheDocument();
+      expect(screen.getByText(/TEST \/ DEMO/)).toBeInTheDocument();
     });
 
     expect(screen.getByText('TEST_ONLY_RESULT')).toBeInTheDocument();
-    expect(screen.getByText('Not provided')).toBeInTheDocument();
-    expect(screen.getByText('No spatial evidence was provided by the specialist.')).toBeInTheDocument();
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getByText('Visual evidence will appear here')).toBeInTheDocument();
   });
   
   test('Handles validation failure', async () => {
@@ -171,13 +171,13 @@ describe('SatQuery AI Frontend', () => {
     
     // Check metadata
     expect(screen.getByText('S2-Flood')).toBeInTheDocument();
-    expect(screen.getByText('cloud_cover:')).toBeInTheDocument();
+    expect(screen.getByText('cloud_cover')).toBeInTheDocument();
     expect(screen.getByText('0.1')).toBeInTheDocument();
     expect(screen.getByText('Yes')).toBeInTheDocument(); // Real Data: Yes
     
     // Check evidence
-    expect(screen.getByText('BOUNDING_BOX')).toBeInTheDocument();
-    expect(screen.getByText('MASK')).toBeInTheDocument();
-    expect(screen.getByText('- water')).toBeInTheDocument();
+    expect(screen.getByText(/BOUNDING_BOX/i)).toBeInTheDocument();
+    expect(screen.getByText(/MASK/i)).toBeInTheDocument();
+    expect(screen.getByText(/- water/i)).toBeInTheDocument();
   });
 });

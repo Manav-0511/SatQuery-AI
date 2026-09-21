@@ -17,11 +17,20 @@ class TestChangeSpecialist(BaseSpecialist):
     @property
     def capabilities(self) -> SpecialistCapability:
         return SpecialistCapability(
+            capability_id="satquery.change",
             name=self.name,
             version=self.version,
+            model_id="mock-change-model",
+            model_version="1.0",
             tasks=[TaskType.CHANGE],
-            modalities=["OPTICAL", "SAR"],
-            input_configurations=[InputConfigType.BI_TEMPORAL]
+            supported_tasks=[TaskType.CHANGE],
+            modalities=["OPTICAL"],
+            supported_modalities=["OPTICAL"],
+            input_configurations=[InputConfigType.BI_TEMPORAL],
+            supported_input_count=2,
+            supports_temporal=True,
+            requires_rs_adaptation=False,
+            status="AVAILABLE"
         )
 
     def can_handle(self, request: AnalysisRequest) -> bool:

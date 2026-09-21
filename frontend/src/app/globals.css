@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+@theme {
+  --color-satquery-bg: #040A18;
+  --color-satquery-card: #0A1428;
+  --color-satquery-card-hover: #0E1A34;
+  --color-satquery-border: #1E2D4A;
+  --color-satquery-border-focus: #32D4F6;
+  --color-satquery-primary: #1E90FF;
+  --color-satquery-primary-hover: #3A9FFF;
+  --color-satquery-cyan: #32D4F6;
+  --color-satquery-success: #10B981;
+  --color-satquery-warning: #F59E0B;
+  --color-satquery-danger: #EF4444;
+
+  --color-satquery-text-main: #F3F4F6;
+  --color-satquery-text-muted: #9CA3AF;
+  
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-satquery-card border border-satquery-border shadow-lg rounded-2xl;
+  }
+  
+  .futuristic-bg {
+    @apply bg-satquery-bg;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(30, 144, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 50% 100%, rgba(30, 144, 255, 0.05) 0%, transparent 50%);
+  }
+}
+
+body {
+  @apply text-satquery-text-main bg-satquery-bg;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(30, 144, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(30, 144, 255, 0.05) 0%, transparent 50%);
+  margin: 0;
+  padding: 0;
+}

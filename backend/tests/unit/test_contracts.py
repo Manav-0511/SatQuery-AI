@@ -22,10 +22,15 @@ class MockVQAAdapter(BaseSpecialist):
     @property
     def capabilities(self) -> SpecialistCapability:
         return SpecialistCapability(
+            capability_id="mock-vqa",
             name="mock-vqa",
             version="1.0",
+            model_id="mock-vqa",
+            model_version="1.0",
             tasks=[TaskType.VQA],
+            supported_tasks=[TaskType.VQA],
             modalities=["OPTICAL"],
+            supported_modalities=["OPTICAL"],
             input_configurations=[InputConfigType.SINGLE_IMAGE]
         )
 

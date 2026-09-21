@@ -12,6 +12,12 @@ class SpecialistRegistry:
 
     def get_all(self) -> List[BaseSpecialist]:
         return self._specialists
+
+    def get(self, name: str, version: str) -> Optional[BaseSpecialist]:
+        for s in self._specialists:
+            if s.name == name and s.version == version:
+                return s
+        return None
         
     def find_candidates(self, request: AnalysisRequest, task: TaskType) -> List[BaseSpecialist]:
         """

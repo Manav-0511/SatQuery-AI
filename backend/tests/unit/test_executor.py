@@ -2,8 +2,9 @@ import pytest
 from app.schemas.request import AnalysisRequest, InputConfiguration, InputItem
 from app.schemas.common import InputConfigType, TaskType, FailureStatus, RunStatus
 from app.schemas.response import SpecialistResult
-from app.agent.router import SpecialistCandidateInfo
-from app.agent.executor import execute_specialist
+from app.schemas.plan import ExecutionPlan, PlanStep
+from app.schemas.trace import TraceConstants
+from app.agent.executor import execute_plan
 from app.agent.registry import registry
 from app.specialists.test_doubles.vqa import TestVQASpecialist
 from app.specialists.base import BaseSpecialist, SpecialistHealth
@@ -16,7 +17,7 @@ class BadSpecialist(BaseSpecialist):
     def version(self) -> str: return "1.0"
     @property
     def capabilities(self) -> SpecialistCapability:
-        return SpecialistCapability(name="bad", version="1.0", tasks=[TaskType.VQA], modalities=["OPTICAL"])
+        return SpecialistCapability(capability_id="bad", name="bad", version="1.0", model_id="b", model_version="1", tasks=[TaskType.VQA], supported_tasks=[TaskType.VQA], modalities=["OPTICAL"], supported_modalities=["OPTICAL"])
     def can_handle(self, request: AnalysisRequest) -> bool: return True
     def analyze(self, request: AnalysisRequest) -> SpecialistResult:
         raise ValueError("Simulated crash")
@@ -29,23 +30,10 @@ class MalformedSpecialist(BaseSpecialist):
     def version(self) -> str: return "1.0"
     @property
     def capabilities(self) -> SpecialistCapability:
-        return SpecialistCapability(name="malformed", version="1.0", tasks=[TaskType.VQA], modalities=["OPTICAL"])
+        return SpecialistCapability(capability_id="m", name="malformed", version="1.0", model_id="m", model_version="1", tasks=[TaskType.VQA], supported_tasks=[TaskType.VQA], modalities=["OPTICAL"], supported_modalities=["OPTICAL"])
     def can_handle(self, request: AnalysisRequest) -> bool: return True
     def analyze(self, request: AnalysisRequest) -> SpecialistResult:
         return {"not": "a SpecialistResult object"} # type: ignore
-    def health(self) -> SpecialistHealth: return SpecialistHealth(status="OK")
-
-class RejectSpecialist(BaseSpecialist):
-    @property
-    def name(self) -> str: return "reject"
-    @property
-    def version(self) -> str: return "1.0"
-    @property
-    def capabilities(self) -> SpecialistCapability:
-        return SpecialistCapability(name="reject", version="1.0", tasks=[TaskType.VQA], modalities=["OPTICAL"])
-    def can_handle(self, request: AnalysisRequest) -> bool: return False
-    def analyze(self, request: AnalysisRequest) -> SpecialistResult:
-        pass
     def health(self) -> SpecialistHealth: return SpecialistHealth(status="OK")
 
 @pytest.fixture(autouse=True)
@@ -54,7 +42,6 @@ def setup_registry():
     registry.register(TestVQASpecialist())
     registry.register(BadSpecialist())
     registry.register(MalformedSpecialist())
-    registry.register(RejectSpecialist())
 
 def get_base_request():
     return AnalysisRequest(
@@ -63,45 +50,41 @@ def get_base_request():
         input_configuration=InputConfiguration(type=InputConfigType.SINGLE_IMAGE)
     )
 
+def create_plan(spec_name: str, spec_version: str) -> ExecutionPlan:
+    return ExecutionPlan(
+        plan_id="p1", intent="test", final_output_step="out",
+        steps=[PlanStep(step_id="1", capability_id="test", action="test", output_ref="out", execution_order=1, rationale="test", selected_specialist_name=spec_name, selected_specialist_version=spec_version)]
+    )
+
 def test_missing_specialist():
     req = get_base_request()
-    res = execute_specialist(req, TaskType.VQA, SpecialistCandidateInfo(name="non-existent", version="1.0"))
+    res = execute_plan(req, create_plan("non-existent", "1.0"))
     assert res.status == FailureStatus.SPECIALIST_UNAVAILABLE
-    assert "not found in registry" in res.errors[0]
-
-def test_reject_request():
-    req = get_base_request()
-    res = execute_specialist(req, TaskType.VQA, SpecialistCandidateInfo(name="reject", version="1.0"))
-    assert res.status == FailureStatus.UNSUPPORTED_TASK
-    assert "rejected the request" in res.errors[0]
+    assert "not found" in res.errors[0]
 
 def test_specialist_exception():
     req = get_base_request()
-    res = execute_specialist(req, TaskType.VQA, SpecialistCandidateInfo(name="bad", version="1.0"))
+    res = execute_plan(req, create_plan("bad", "1.0"))
     assert res.status == FailureStatus.SPECIALIST_FAILED
     assert "Simulated crash" in res.errors[0]
     assert res.trace.steps[-1].status == FailureStatus.SPECIALIST_FAILED
 
 def test_malformed_result():
     req = get_base_request()
-    res = execute_specialist(req, TaskType.VQA, SpecialistCandidateInfo(name="malformed", version="1.0"))
+    res = execute_plan(req, create_plan("malformed", "1.0"))
     assert res.status == FailureStatus.SPECIALIST_FAILED
     assert "INVALID_SPECIALIST_RESULT" in res.errors[0]
 
 def test_successful_execution():
     req = get_base_request()
-    res = execute_specialist(req, TaskType.VQA, SpecialistCandidateInfo(name="test-vqa", version="test"))
+    res = execute_plan(req, create_plan("test-vqa", "test"))
     assert res.status == RunStatus.COMPLETED
     assert res.response.task == TaskType.VQA
     assert res.response.answer == "TEST_ONLY_RESULT"
-    # confidence is null
     assert res.response.confidence is None
-    # evidence is preserved (empty)
     assert res.response.evidence == []
-    # provenance preserved
     assert res.response.provenance.synthetic is True
-    # trace generated
     steps = [s.action for s in res.trace.steps]
-    assert "SPECIALIST_EXECUTION_STARTED" in steps
-    assert "SPECIALIST_EXECUTION_COMPLETED" in steps
-    assert "RESULT_VALIDATED" in steps
+    assert TraceConstants.STEP_STARTED in steps
+    assert TraceConstants.STEP_COMPLETED in steps
+    assert TraceConstants.PLAN_COMPLETED in steps

@@ -1,4 +1,5 @@
 import React from "react";
+import { Search, Sparkles } from "lucide-react";
 
 interface QueryBoxProps {
     query: string;
@@ -14,29 +15,49 @@ export function QueryBox({ query, onChange }: QueryBoxProps) {
     ];
 
     return (
-        <div className="flex flex-col gap-3">
-            <label htmlFor="query-input" className="text-lg font-semibold text-gray-200">
-                Natural-Language Query
-            </label>
-            <textarea
-                id="query-input"
-                className="w-full p-4 bg-gray-900 border border-gray-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 min-h-[100px]"
-                placeholder="Ask a question about the uploaded satellite imagery..."
-                value={query}
-                onChange={(e) => onChange(e.target.value)}
-            />
-            <div className="flex flex-wrap gap-2">
-                <span className="text-sm text-gray-400 self-center">Suggestions:</span>
-                {suggestions.map((s, i) => (
-                    <button
-                        key={i}
-                        onClick={() => onChange(s)}
-                        className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-1 px-3 rounded-full border border-gray-700"
-                        aria-label={`Use suggestion: ${s}`}
-                    >
-                        {s}
-                    </button>
-                ))}
+        <div className="glass-card p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-full bg-satquery-primary flex items-center justify-center text-white font-bold text-sm">
+                    2
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-white">Query Section</h2>
+                    <p className="text-satquery-text-muted text-sm">Natural-Language Query</p>
+                </div>
+            </div>
+
+            <div className="relative">
+                <textarea
+                    id="query-input"
+                    className="w-full p-4 bg-satquery-bg border border-satquery-border rounded-xl text-white placeholder-satquery-text-muted focus:outline-none focus:border-satquery-cyan focus:ring-1 focus:ring-satquery-cyan transition-colors min-h-[120px] resize-none"
+                    placeholder="Ask a question about the uploaded satellite imagery..."
+                    value={query}
+                    onChange={(e) => onChange(e.target.value)}
+                    maxLength={500}
+                />
+                <div className="absolute bottom-3 right-4 text-xs text-satquery-text-muted">
+                    {query.length}/500
+                </div>
+            </div>
+
+            <div>
+                <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-4 h-4 text-satquery-cyan" />
+                    <span className="text-sm font-semibold text-satquery-text-main">Suggested Questions</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                    {suggestions.map((s, i) => (
+                        <button
+                            key={i}
+                            onClick={() => onChange(s)}
+                            className="text-left text-xs bg-satquery-bg hover:bg-satquery-border text-satquery-text-main py-2 px-3 rounded-lg border border-satquery-border flex items-center gap-2 transition-colors"
+                            aria-label={`Use suggestion: ${s}`}
+                        >
+                            <Search className="w-3 h-3 text-satquery-cyan" />
+                            {s}
+                        </button>
+                    ))}
+                </div>
             </div>
         </div>
     );

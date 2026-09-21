@@ -1,10 +1,9 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from app.schemas.request import AnalysisRequest
-from app.schemas.common import TaskType, InputConfigType, FailureStatus
-from app.agent.query_interpreter import interpret_query
-from app.validation.compatibility import validate_request_full
-from app.agent.registry import registry
+from app.schemas.common import TaskType, FailureStatus
+from app.schemas.plan import ExecutionPlan
+from app.agent.agent import AgentV2
 
 class SpecialistCandidateInfo(BaseModel):
     name: str
@@ -15,76 +14,52 @@ class RoutingResult(BaseModel):
     task: TaskType | str
     reason: str
     candidates: List[SpecialistCandidateInfo]
+    plan: Optional[ExecutionPlan] = None
+
+# Singleton agent
+_agent = AgentV2()
 
 def route_request(request: AnalysisRequest) -> RoutingResult:
-    # 1. Validate configuration first.
-    validation_res = validate_request_full(request)
-    if not validation_res.valid:
-        # Get the first error code
-        code = validation_res.errors[0].code
-        if isinstance(code, FailureStatus):
-            code = code.value
+    # Delegate to AgentV2
+    plan_or_status = _agent.build_plan(request)
+    
+    if isinstance(plan_or_status, FailureStatus):
         return RoutingResult(
-            status=code,
+            status=plan_or_status.value,
             task=TaskType.UNKNOWN,
-            reason=validation_res.errors[0].message,
-            candidates=[]
+            reason=f"Agent routing failed with status: {plan_or_status.value}",
+            candidates=[],
+            plan=None
         )
         
-    config_type = request.input_configuration.type
+    plan = plan_or_status
     
-    # 2 & 3 & 4. Routing Priority
-    candidate_task = TaskType.UNKNOWN
-    reason = ""
+    # Preserve existing API behavior by mapping plan back to RoutingResult fields
+    # Just take the first step for compatibility
+    first_step = plan.steps[0] if plan.steps else None
+    task = TaskType.UNKNOWN
+    candidates = []
     
-    query_interp = interpret_query(request.query)
-    
-    if config_type == InputConfigType.BI_TEMPORAL:
-        candidate_task = TaskType.CHANGE
-        reason = "Input configuration is BI_TEMPORAL"
-    elif config_type == InputConfigType.OPTICAL_SAR:
-        candidate_task = TaskType.OPTICAL_SAR
-        reason = "Input configuration is OPTICAL_SAR"
-    elif query_interp.task_hint == TaskType.GROUNDING:
-        candidate_task = TaskType.GROUNDING
-        reason = "Spatial language detected in query"
-    else:
-        candidate_task = TaskType.VQA
-        reason = "Default fallback to VQA"
-        
-    if query_interp.task_hint == TaskType.CHANGE and config_type != InputConfigType.BI_TEMPORAL:
-        # Handled by validator mostly, but just in case
-        return RoutingResult(
-            status=FailureStatus.UNSUPPORTED_TASK,
-            task=TaskType.UNKNOWN,
-            reason="Change detection requires BI_TEMPORAL inputs",
-            candidates=[]
-        )
-        
-    if candidate_task == TaskType.UNKNOWN:
-        return RoutingResult(
-            status=FailureStatus.UNSUPPORTED_TASK,
-            task=TaskType.UNKNOWN,
-            reason="Could not determine task from query and configuration",
-            candidates=[]
-        )
-        
-    # 5. Discover capabilities in registry
-    candidates = registry.find_candidates(request, candidate_task)
-    
-    if not candidates:
-        return RoutingResult(
-            status=FailureStatus.SPECIALIST_UNAVAILABLE,
-            task=candidate_task,
-            reason=f"No specialists registered for task {candidate_task.value}",
-            candidates=[]
-        )
-        
-    candidate_infos = [SpecialistCandidateInfo(name=c.name, version=c.version) for c in candidates]
-    
+    if first_step:
+        # Hack to get task from action string, or just use UNKNOWN for compat since executor doesn't strictly need it if it uses plan
+        # Actually in AgentV2 we put the task in the action string "Execute {task.value}"
+        # Let's extract it or default
+        task_str = first_step.action.replace("Execute ", "")
+        try:
+            task = TaskType(task_str)
+        except ValueError:
+            pass
+            
+        if first_step.selected_specialist_name:
+            candidates.append(SpecialistCandidateInfo(
+                name=first_step.selected_specialist_name,
+                version=first_step.selected_specialist_version
+            ))
+            
     return RoutingResult(
         status="PLANNING",
-        task=candidate_task,
-        reason=reason,
-        candidates=candidate_infos
+        task=task,
+        reason=plan.intent,
+        candidates=candidates,
+        plan=plan
     )

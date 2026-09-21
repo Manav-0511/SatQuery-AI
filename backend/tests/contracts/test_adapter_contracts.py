@@ -4,7 +4,7 @@ from app.specialists.test_doubles.vqa import TestVQASpecialist
 from app.specialists.test_doubles.grounding import TestGroundingSpecialist
 from app.specialists.test_doubles.change import TestChangeSpecialist
 from app.specialists.test_doubles.optical_sar import TestOpticalSARSpecialist
-from .test_generic_specialist_contract import run_specialist_contract_tests
+from tests.contracts.test_generic_specialist_contract import run_specialist_contract_tests
 
 def test_vqa_contract():
     specialist = TestVQASpecialist()

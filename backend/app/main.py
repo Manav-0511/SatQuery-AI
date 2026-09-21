@@ -96,9 +96,10 @@ async def analyze(
         run_store.update_run(run_id, err_res)
         return err_res
 
+    from app.agent.executor import execute_plan
+    
     # 4. Execute
-    candidate = route_res.candidates[0]
-    exec_res = execute_specialist(request, route_res.task, candidate, run_id=run_id)
+    exec_res = execute_plan(request, route_res.plan, run_id=run_id)
     
     run_store.update_run(run_id, exec_res)
     return exec_res

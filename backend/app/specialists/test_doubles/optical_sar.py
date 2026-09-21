@@ -17,11 +17,20 @@ class TestOpticalSARSpecialist(BaseSpecialist):
     @property
     def capabilities(self) -> SpecialistCapability:
         return SpecialistCapability(
+            capability_id="satquery.optical_sar",
             name=self.name,
             version=self.version,
+            model_id="mock-optical-sar-model",
+            model_version="1.0",
             tasks=[TaskType.OPTICAL_SAR],
+            supported_tasks=[TaskType.OPTICAL_SAR],
             modalities=["OPTICAL", "SAR"],
-            input_configurations=[InputConfigType.OPTICAL_SAR]
+            supported_modalities=["OPTICAL", "SAR"],
+            input_configurations=[InputConfigType.OPTICAL_SAR],
+            supported_input_count=2,
+            supports_optical_sar=True,
+            requires_rs_adaptation=False,
+            status="AVAILABLE"
         )
 
     def can_handle(self, request: AnalysisRequest) -> bool:

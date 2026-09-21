@@ -17,16 +17,16 @@ def run_specialist_contract_tests(specialist: BaseSpecialist, task_type: TaskTyp
     assert hasattr(specialist, "version"), f"Specialist {specialist.__class__.__name__} missing version"
     
     # C. capabilities are declared
-    capabilities = specialist.get_capabilities()
-    assert len(capabilities) > 0, "Must declare at least one capability"
+    capabilities = specialist.capabilities
+    assert capabilities is not None, "Must declare capabilities"
     
     # D. can_handle() returns bool
-    can_handle_result = specialist.can_handle(valid_request, task_type)
+    can_handle_result = specialist.can_handle(valid_request)
     assert isinstance(can_handle_result, bool)
     
     if can_handle_result:
         # E. analyze() accepts valid request
-        result = specialist.analyze(valid_request, task_type)
+        result = specialist.analyze(valid_request)
         
         # F. analyze() returns SpecialistResult
         assert isinstance(result, SpecialistResult), f"Expected SpecialistResult, got {type(result)}"
@@ -53,13 +53,19 @@ def run_specialist_contract_tests(specialist: BaseSpecialist, task_type: TaskTyp
         # L. uncertainty can be null
         # Uncertainty is not explicitly in SpecialistResult in phase 1, but we can check the model structure
         
-        # M. health() works
-        assert isinstance(specialist.health(), bool)
+        from app.specialists.base import SpecialistHealth
+        assert isinstance(specialist.health(), SpecialistHealth)
     
     # N. specialist exceptions are handled by executor
     # We test this by forcing executor to run it (we pass dummy context)
-    exec_result = execute_specialist(valid_request, task_type, specialist, "test_run_id")
-    assert exec_result.status in ["COMPLETED", "SPECIALIST_FAILED", "UNSUPPORTED_TASK"]
+    from app.agent.registry import registry
+    from app.agent.router import SpecialistCandidateInfo
+    registry.register(specialist)
+    try:
+        exec_result = execute_specialist(valid_request, task_type, SpecialistCandidateInfo(name=specialist.name, version=specialist.version), "test_run_id")
+        assert exec_result.status in ["COMPLETED", "SPECIALIST_FAILED", "UNSUPPORTED_TASK"]
+    finally:
+        registry._specialists.remove(specialist)
     
     # O. no frontend dependency exists
     # If the specialist imported frontend, it would fail here or statically. 

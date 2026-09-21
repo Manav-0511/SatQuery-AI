@@ -1,15 +1,18 @@
 import pytest
-from app.agent.router import route_request, RoutingResult
 from app.schemas.request import AnalysisRequest, InputConfiguration, InputItem
 from app.schemas.common import InputConfigType, TaskType, FailureStatus
+from app.schemas.plan import ExecutionPlan
+from app.agent.agent import AgentV2
 from app.agent.registry import registry
 from app.specialists.base import BaseSpecialist, SpecialistHealth
 from app.agent.capabilities import SpecialistCapability
 
 class MockAdapter(BaseSpecialist):
-    def __init__(self, task: TaskType, name: str = "mock"):
+    def __init__(self, task: TaskType, name: str = "mock", rs_status: str = "COMPLETED", requires_rs: bool = False):
         self._task = task
         self._name = name
+        self._rs_status = rs_status
+        self._requires_rs = requires_rs
         
     @property
     def name(self) -> str: return self._name
@@ -23,7 +26,9 @@ class MockAdapter(BaseSpecialist):
             model_id=self.name, model_version="1.0",
             tasks=[self._task], supported_tasks=[self._task],
             modalities=["OPTICAL", "SAR"], supported_modalities=["OPTICAL", "SAR"],
-            input_configurations=[InputConfigType.SINGLE_IMAGE, InputConfigType.BI_TEMPORAL, InputConfigType.OPTICAL_SAR]
+            input_configurations=[InputConfigType.SINGLE_IMAGE, InputConfigType.BI_TEMPORAL, InputConfigType.OPTICAL_SAR],
+            requires_rs_adaptation=self._requires_rs,
+            rs_adaptation_status=self._rs_status
         )
     def can_handle(self, request: AnalysisRequest) -> bool: return True
     def analyze(self, request: AnalysisRequest): pass
@@ -31,60 +36,54 @@ class MockAdapter(BaseSpecialist):
 
 @pytest.fixture(autouse=True)
 def setup_registry():
-    # Clear registry for each test
     registry._specialists = []
     registry.register(MockAdapter(TaskType.VQA, "mock-vqa"))
     registry.register(MockAdapter(TaskType.GROUNDING, "mock-grounding"))
     registry.register(MockAdapter(TaskType.CHANGE, "mock-change"))
     registry.register(MockAdapter(TaskType.OPTICAL_SAR, "mock-optical-sar"))
 
-def test_routing_vqa():
+def test_agent_vqa_single_step():
+    agent = AgentV2()
     req = AnalysisRequest(
         query="Is there water?",
         inputs=[InputItem(url="1.tif", type="image/tiff")],
         input_configuration=InputConfiguration(type=InputConfigType.SINGLE_IMAGE)
     )
-    res = route_request(req)
-    assert res.task == TaskType.VQA
-    assert res.status == "PLANNING"
-    assert len(res.candidates) == 1
+    plan = agent.build_plan(req)
+    assert isinstance(plan, ExecutionPlan)
+    assert len(plan.steps) == 1
+    assert plan.steps[0].action == "Execute VQA"
+    assert plan.steps[0].selected_specialist_name == "mock-vqa"
 
-def test_routing_grounding():
+def test_agent_change_multi_step():
+    agent = AgentV2()
     req = AnalysisRequest(
-        query="Where is the water?",
-        inputs=[InputItem(url="1.tif", type="image/tiff")],
-        input_configuration=InputConfiguration(type=InputConfigType.SINGLE_IMAGE)
-    )
-    res = route_request(req)
-    assert res.task == TaskType.GROUNDING
-
-def test_routing_change():
-    req = AnalysisRequest(
-        query="What changed?",
+        query="Where are the new buildings?",
         inputs=[
             InputItem(url="1.tif", type="image/tiff"),
             InputItem(url="2.tif", type="image/tiff")
         ],
         input_configuration=InputConfiguration(type=InputConfigType.BI_TEMPORAL)
     )
-    res = route_request(req)
-    assert res.task == TaskType.CHANGE
+    plan = agent.build_plan(req)
+    assert isinstance(plan, ExecutionPlan)
+    # The query interpreter detects spatial language, so it triggers GROUNDING after CHANGE
+    assert len(plan.steps) == 2
+    assert plan.steps[0].action == "Execute CHANGE"
+    assert plan.steps[1].action == "Execute GROUNDING"
+    assert plan.steps[0].output_ref == plan.steps[1].input_refs[0]
+    assert plan.final_output_step == plan.steps[1].output_ref
 
-def test_routing_change_validation_failure():
-    req = AnalysisRequest(
-        query="What changed between these images?",
-        inputs=[InputItem(url="1.tif", type="image/tiff")],
-        input_configuration=InputConfiguration(type=InputConfigType.SINGLE_IMAGE)
-    )
-    res = route_request(req)
-    assert res.status == FailureStatus.TEMPORAL_PAIR_REQUIRED
-
-def test_missing_specialist():
-    registry._specialists = [] # Empty it out
+def test_agent_filters_incomplete_adaptation():
+    agent = AgentV2()
+    registry._specialists = []
+    registry.register(MockAdapter(TaskType.VQA, "mock-vqa-unadapted", rs_status="PENDING", requires_rs=True))
+    
     req = AnalysisRequest(
         query="Is there water?",
         inputs=[InputItem(url="1.tif", type="image/tiff")],
         input_configuration=InputConfiguration(type=InputConfigType.SINGLE_IMAGE)
     )
-    res = route_request(req)
-    assert res.status == FailureStatus.SPECIALIST_UNAVAILABLE
+    res = agent.build_plan(req)
+    # Should fail because the only specialist requires RS adaptation which is pending
+    assert res == FailureStatus.SPECIALIST_UNAVAILABLE

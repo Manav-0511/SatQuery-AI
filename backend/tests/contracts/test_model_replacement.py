@@ -13,9 +13,14 @@ class DummyVQAAdapterV1(BaseSpecialist):
     @property
     def version(self) -> str:
         return "1.0"
-    def get_capabilities(self) -> list[SpecialistCapability]:
-        return [SpecialistCapability(task=TaskType.VQA, supported_inputs=[InputConfigType.SINGLE_IMAGE])]
-    def analyze(self, request: AnalysisRequest, task: TaskType) -> SpecialistResult:
+    @property
+    def capabilities(self) -> SpecialistCapability:
+        return SpecialistCapability(
+            capability_id="v1", name=self.name, version=self.version,
+            model_id="mock", model_version="1.0", tasks=[TaskType.VQA], supported_tasks=[TaskType.VQA], modalities=["OPTICAL"], supported_modalities=["OPTICAL"]
+        )
+    def can_handle(self, request): return True
+    def analyze(self, request: AnalysisRequest) -> SpecialistResult:
         return SpecialistResult(
             status="COMPLETED",
             task=TaskType.VQA,
@@ -35,9 +40,14 @@ class DummyVQAAdapterV2(BaseSpecialist):
     @property
     def version(self) -> str:
         return "2.0"
-    def get_capabilities(self) -> list[SpecialistCapability]:
-        return [SpecialistCapability(task=TaskType.VQA, supported_inputs=[InputConfigType.SINGLE_IMAGE])]
-    def analyze(self, request: AnalysisRequest, task: TaskType) -> SpecialistResult:
+    @property
+    def capabilities(self) -> SpecialistCapability:
+        return SpecialistCapability(
+            capability_id="v2", name=self.name, version=self.version,
+            model_id="mock", model_version="2.0", tasks=[TaskType.VQA], supported_tasks=[TaskType.VQA], modalities=["OPTICAL"], supported_modalities=["OPTICAL"]
+        )
+    def can_handle(self, request): return True
+    def analyze(self, request: AnalysisRequest) -> SpecialistResult:
         return SpecialistResult(
             status="COMPLETED",
             task=TaskType.VQA,

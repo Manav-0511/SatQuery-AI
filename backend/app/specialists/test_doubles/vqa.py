@@ -17,11 +17,19 @@ class TestVQASpecialist(BaseSpecialist):
     @property
     def capabilities(self) -> SpecialistCapability:
         return SpecialistCapability(
+            capability_id="satquery.vqa",
             name=self.name,
             version=self.version,
+            model_id="mock-vqa-model",
+            model_version="1.0",
             tasks=[TaskType.VQA],
+            supported_tasks=[TaskType.VQA],
             modalities=["OPTICAL"],
-            input_configurations=[InputConfigType.SINGLE_IMAGE]
+            supported_modalities=["OPTICAL"],
+            input_configurations=[InputConfigType.SINGLE_IMAGE],
+            supported_input_count=1,
+            requires_rs_adaptation=False,
+            status="AVAILABLE"
         )
 
     def can_handle(self, request: AnalysisRequest) -> bool:
