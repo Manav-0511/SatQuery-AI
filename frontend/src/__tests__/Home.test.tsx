@@ -69,7 +69,7 @@ describe('SatQuery AI Frontend', () => {
     });
 
     expect(screen.getByText('TEST_ONLY_RESULT')).toBeInTheDocument();
-    expect(screen.getByText('Confidence not provided by specialist.')).toBeInTheDocument();
+    expect(screen.getByText('Not provided')).toBeInTheDocument();
     expect(screen.getByText('No spatial evidence was provided by the specialist.')).toBeInTheDocument();
   });
   
@@ -94,5 +94,90 @@ describe('SatQuery AI Frontend', () => {
     await waitFor(() => {
       expect(screen.getByText(/NO_INPUT/i)).toBeInTheDocument();
     });
+  });
+
+  test('Shows loading state during analysis and network errors', async () => {
+    mockAnalyze.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ status: 'COMPLETED' }), 100)));
+
+    render(<Home />);
+    
+    const fileInput = screen.getByLabelText(/upload satellite images/i);
+    const file = new File(['dummy content'], 'test.tif', { type: 'image/tiff' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const queryInput = screen.getByPlaceholderText(/ask a question/i);
+    fireEvent.change(queryInput, { target: { value: 'Test query' } });
+
+    const button = screen.getByRole('button', { name: /analyze imagery/i });
+    fireEvent.click(button);
+
+    // Should show loading
+    expect(screen.getByText(/Analyzing\.\.\./i)).toBeInTheDocument();
+    
+    // Now mock a network error for the next click
+    mockAnalyze.mockRejectedValueOnce(new Error("Network Error"));
+    
+    await waitFor(() => {
+      expect(button).not.toBeDisabled(); // Re-enabled after finish
+    });
+
+    fireEvent.click(button);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Network Error/i)).toBeInTheDocument();
+    });
+  });
+
+  test('Handles structured evidence, uncertainty, and metadata rendering', async () => {
+    mockAnalyze.mockResolvedValue({
+      status: 'COMPLETED',
+      response: {
+        task: 'GROUNDING',
+        answer: 'Found water.',
+        confidence: 0.85,
+        uncertainty: 0.05,
+        evidence: [
+          { type: 'BOUNDING_BOX', coordinate_space: 'PIXEL', coordinates: [10, 10, 20, 20], label: 'water' },
+          { type: 'MASK', mask_url: 'blob:mock-url' }
+        ],
+        model: { name: 'real-grounding', version: '2.0' },
+        provenance: { synthetic: false, is_real_data: true, dataset: 'S2-Flood', metadata: { 'cloud_cover': 0.1 } }
+      },
+      trace: {
+        steps: [{ component: 'api', action: 'START', status: 'COMPLETED' }],
+        totalTimeMs: 200
+      }
+    });
+
+    render(<Home />);
+    
+    const fileInput = screen.getByLabelText(/upload satellite images/i);
+    const file = new File(['dummy content'], 'test.tif', { type: 'image/tiff' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const queryInput = screen.getByPlaceholderText(/ask a question/i);
+    fireEvent.change(queryInput, { target: { value: 'Where is the water?' } });
+
+    const button = screen.getByRole('button', { name: /analyze imagery/i });
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(screen.getByText('Found water.')).toBeInTheDocument();
+    });
+
+    // Check confidence and uncertainty
+    expect(screen.getByText('85.0%')).toBeInTheDocument();
+    expect(screen.getByText('5.0%')).toBeInTheDocument();
+    
+    // Check metadata
+    expect(screen.getByText('S2-Flood')).toBeInTheDocument();
+    expect(screen.getByText('cloud_cover:')).toBeInTheDocument();
+    expect(screen.getByText('0.1')).toBeInTheDocument();
+    expect(screen.getByText('Yes')).toBeInTheDocument(); // Real Data: Yes
+    
+    // Check evidence
+    expect(screen.getByText('BOUNDING_BOX')).toBeInTheDocument();
+    expect(screen.getByText('MASK')).toBeInTheDocument();
+    expect(screen.getByText('- water')).toBeInTheDocument();
   });
 });

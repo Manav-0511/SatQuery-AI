@@ -3,9 +3,11 @@
 Agentic Vision-Language Assistant for Remote-Sensing Analysis.
 
 ## Current Status
-**MVP - Phase 4 Completed**
-The backend API and Next.js frontend are implemented. 
-**IMPORTANT**: The system currently runs using **TEST DOUBLES / MOCKS** for all ML models. No real AI inference or satellite data processing is happening yet. This is an architectural foundation for future specialist model integration.
+**Phase 6A - Model Handoff Preparation Completed**
+The backend API, Next.js frontend, and agentic orchestration layer are completely decoupled from ML inference and are fully tested. 
+
+**WAITING FOR TEAMMATE HANDOFF**: The system is waiting for ML Engineers to provide the real VQA, Grounding, Change-Detection, and Optical-SAR models according to the `docs/model-handoff-contract.md`. 
+Currently, the system runs exclusively on TEST DOUBLES / MOCKS. No real AI inference or satellite data processing is happening yet.
 
 ## How to Start the Application
 

@@ -34,6 +34,7 @@ export interface SpecialistResult {
     answer: string;
     model: ModelInfo;
     confidence: number | null;
+    uncertainty?: number | null;
     evidence: EvidenceItem[];
     provenance: Provenance;
 }
