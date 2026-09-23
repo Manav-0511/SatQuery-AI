@@ -55,20 +55,22 @@ export function AnswerPanel({ result }: AnswerPanelProps) {
                     />
                 </div>
                 
-                <div>
-                    <h3 className="text-sm font-semibold text-satquery-text-muted mb-3 uppercase tracking-wider flex items-center gap-2">
-                        <Database className="w-4 h-4" /> Provenance
-                    </h3>
-                    <div className="bg-satquery-bg border border-satquery-border p-4 rounded-xl grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <ProvenanceItem label="Real Data" value={result.provenance.is_real_data ? "Yes" : "No"} />
-                        <ProvenanceItem label="Synthetic" value={result.provenance.synthetic ? "Yes" : "No"} />
-                        {result.provenance.dataset && <ProvenanceItem label="Dataset" value={result.provenance.dataset} />}
-                        {result.provenance.sample_id && <ProvenanceItem label="Sample ID" value={result.provenance.sample_id} />}
-                        {result.provenance.metadata && Object.entries(result.provenance.metadata).map(([k, v]) => (
-                            <ProvenanceItem key={k} label={k} value={String(v)} />
-                        ))}
+                {result.provenance && (
+                    <div>
+                        <h3 className="text-sm font-semibold text-satquery-text-muted mb-3 uppercase tracking-wider flex items-center gap-2">
+                            <Database className="w-4 h-4" /> Provenance
+                        </h3>
+                        <div className="bg-satquery-bg border border-satquery-border p-4 rounded-xl grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                            <ProvenanceItem label="Real Data" value={result.provenance.is_real_data ? "Yes" : "No"} />
+                            <ProvenanceItem label="Synthetic" value={result.provenance.synthetic ? "Yes" : "No"} />
+                            {result.provenance.dataset && <ProvenanceItem label="Dataset" value={result.provenance.dataset} />}
+                            {result.provenance.sample_id && <ProvenanceItem label="Sample ID" value={result.provenance.sample_id} />}
+                            {result.provenance.metadata && Object.entries(result.provenance.metadata).map(([k, v]) => (
+                                <ProvenanceItem key={k} label={k} value={String(v)} />
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

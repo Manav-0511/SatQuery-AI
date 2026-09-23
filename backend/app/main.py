@@ -4,6 +4,7 @@ from typing import List, Optional
 import uuid
 import json
 import time
+import base64
 
 from app.schemas.request import AnalysisRequest, InputConfiguration, InputItem
 from app.schemas.common import RunStatus, TaskType, InputConfigType, FailureStatus
@@ -13,11 +14,14 @@ from app.store import run_store
 from app.agent.router import route_request
 from app.agent.executor import execute_specialist
 from app.agent.registry import registry
+from app.specialists.colab_qwen import ColabQwenSpecialist
 from app.specialists.test_doubles.vqa import TestVQASpecialist
 from app.specialists.test_doubles.grounding import TestGroundingSpecialist
 from app.specialists.test_doubles.change import TestChangeSpecialist
 from app.specialists.test_doubles.optical_sar import TestOpticalSARSpecialist
 
+# Register Colab specialist first (handles request if COLAB_API_URL is set)
+registry.register(ColabQwenSpecialist())
 # Register test doubles for Phase 4 MVP
 registry.register(TestVQASpecialist())
 registry.register(TestGroundingSpecialist())
@@ -69,11 +73,18 @@ async def analyze(
         return err_res
 
     # Construct request
-    # For MVP, we use the filename as URL, because we are not doing deep raster parsing or real processing yet
     inputs = []
     for f in files:
-        # In a real app we'd save to disk/S3 here
-        inputs.append(InputItem(url=f.filename, type=f.content_type or "image/tiff"))
+        file_bytes = await f.read()
+        b64_str = base64.b64encode(file_bytes).decode("utf-8")
+        
+        modality = ""
+        if "sar" in f.filename.lower() or "s1" in f.filename.lower():
+            modality = "SAR"
+        elif "optical" in f.filename.lower() or "s2" in f.filename.lower() or "rgb" in f.filename.lower():
+            modality = "OPTICAL"
+            
+        inputs.append(InputItem(url=f.filename, type=f.content_type or "image/tiff", metadata={"bytes": b64_str, "modality": modality}))
 
     request = AnalysisRequest(
         query=query,
